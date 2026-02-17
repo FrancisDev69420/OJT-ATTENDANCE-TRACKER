@@ -34,6 +34,11 @@ class Attendance extends Model
         });
     }
 
+    // Use UUID for route model binding
+    public function getRouteKeyName(){
+        return 'id';
+    }
+
     // Attendance belongs to a student
     public function student()
     {

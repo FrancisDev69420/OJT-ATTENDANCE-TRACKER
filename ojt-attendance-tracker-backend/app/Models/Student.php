@@ -30,6 +30,11 @@ class Student extends Model
         });
     }
 
+    // Use UUID for route model binding
+    public function getRouteKeyName(){
+        return 'id';
+    }
+
     public function attendances(){
         return $this->hasMany(Attendance::class);
     }
