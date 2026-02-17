@@ -17,6 +17,7 @@ class Student extends Model
     protected function casts(): array
     {
         return [
+            'id' => 'string',
             'start_date' => 'date',
             'end_date' => 'date',
         ];

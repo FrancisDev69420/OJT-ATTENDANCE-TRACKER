@@ -19,6 +19,7 @@ class Attendance extends Model
     protected function casts(): array
     {
         return [
+            'id' => 'string',
             'date' => 'date',
             'time_in' => 'datetime:H:i', // 24 hour format
             'time_out' => 'datetime:H:i',
