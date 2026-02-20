@@ -3,7 +3,7 @@
     <div class="modal-content">
       <!-- Modal Header -->
       <div class="modal-header">
-        <h3>Record Attendance</h3>
+        <h3>{{ isEditMode ? 'Edit Attendance' : 'Record Attendance' }}</h3>
         <button class="close-btn" @click="closeModal">&times;</button>
       </div>
 
@@ -87,7 +87,7 @@
               :disabled="isSubmitting"
               class="btn btn-primary"
             >
-              {{ isSubmitting ? 'Submitting...' : 'Record Attendance' }}
+              {{ isSubmitting ? (isEditMode ? 'Updating...' : 'Submitting...') : (isEditMode ? 'Update Attendance' : 'Record Attendance') }}
             </button>
             <button
               type="button"
@@ -118,6 +118,8 @@ export default {
     return {
       isOpen: false,
       studentId: null,
+      attendanceId: null,
+      isEditMode: false,
       form: {
         date: '',
         time_in: '',
@@ -131,12 +133,41 @@ export default {
     };
   },
   methods: {
-    openModal(studentId) {
+    openModal(studentId, attendanceRecord = null) {
       this.studentId = studentId;
       this.isOpen = true;
-      this.resetForm();
       this.error = null;
       this.successMessage = null;
+
+      // Parse dates to yyyy-MM-dd format for date input
+      const parseDate = (dateString) => {
+        if (!dateString) return '';
+        try {
+          const date = new Date(dateString);
+          if (isNaN(date.getTime())) return '';
+          return date.toISOString().split('T')[0];
+        } catch (e) {
+          console.error('Error parsing date:', e);
+          return '';
+        }
+      };
+
+      if (attendanceRecord) {
+        // Edit mode
+        this.isEditMode = true;
+        this.attendanceId = attendanceRecord.id;
+        this.form = {
+          date: parseDate(attendanceRecord.date),
+          time_in: attendanceRecord.time_in,
+          time_out: attendanceRecord.time_out,
+          status: attendanceRecord.status,
+        };
+      } else {
+        // Create mode
+        this.isEditMode = false;
+        this.attendanceId = null;
+        this.resetForm();
+      }
     },
     closeModal() {
       this.isOpen = false;
@@ -173,14 +204,26 @@ export default {
           status: this.form.status,
         };
 
-        console.log('Submitting attendance form:', payload);
+        let response;
 
-        const response = await axios.post(
-          `${this.apiBaseUrl}/attendances`,
-          payload
-        );
+        if (this.isEditMode && this.attendanceId) {
+          // Update existing attendance
+          console.log('Updating attendance:', this.attendanceId, payload);
+          response = await axios.put(
+            `${this.apiBaseUrl}/attendances/${this.attendanceId}`,
+            payload
+          );
+          this.successMessage = 'Attendance updated successfully!';
+        } else {
+          // Create new attendance
+          console.log('Submitting attendance form:', payload);
+          response = await axios.post(
+            `${this.apiBaseUrl}/attendances`,
+            payload
+          );
+          this.successMessage = 'Attendance recorded successfully!';
+        }
 
-        this.successMessage = 'Attendance recorded successfully!';
         console.log('Attendance response:', response.data);
 
         // Reset form and close after 1.5 seconds
@@ -197,7 +240,7 @@ export default {
         } else if (error.response && error.response.data && error.response.data.message) {
           this.error = error.response.data.message;
         } else {
-          this.error = 'Failed to record attendance. Please try again.';
+          this.error = this.isEditMode ? 'Failed to update attendance. Please try again.' : 'Failed to record attendance. Please try again.';
         }
       } finally {
         this.isSubmitting = false;

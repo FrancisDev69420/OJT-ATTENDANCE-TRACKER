@@ -93,7 +93,7 @@ async def get_student_analysis(student_id: str):
         analysis = analyzer.get_student_analysis(student_id)
         
         if 'error' in analysis:
-            raise HTTPException(status_code=404, detail=analysis['error'])
+            raise HTTPException(status_code=422, detail=analysis['error'])
         
         return analysis
     

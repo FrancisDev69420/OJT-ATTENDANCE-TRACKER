@@ -2,12 +2,20 @@
   <div class="student-card" @click="onCardClick">
     <!-- Card Header -->
     <div class="card-header">
+
       <div class="student-avatar">
         {{ getInitials(student?.name) }}
       </div>
+
       <div class="header-info">
         <h3 class="student-name">{{ student?.name || 'N/A' }}</h3>
         <p class="student-id">ID: {{ student?.id?.substring(0, 8) || 'N/A' }}</p>
+      </div>
+
+      <div class="delete-button">
+        <button @click.stop="onDeleteClick" class="delete-btn">
+          <TrashIcon class="icon" />
+        </button>
       </div>
     </div>
 
@@ -58,8 +66,13 @@
 </template>
 
 <script>
+import { TrashIcon } from '@heroicons/vue/24/solid'
+
 export default {
   name: 'StudentCard',
+  components: {
+    TrashIcon
+  },
   props: {
     student: {
       type: Object,
@@ -69,6 +82,9 @@ export default {
   methods: {
     onCardClick() {
       this.$emit('card-clicked', this.student);
+    },
+    onDeleteClick() {
+      this.$emit('delete-clicked', this.student);
     },
     getInitials(name) {
       if (!name) return '?';
@@ -126,7 +142,6 @@ export default {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   overflow: hidden;
   transition: all 0.3s ease;
-  border-left: 5px solid var(--orange-dark);
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -141,12 +156,30 @@ export default {
 
 /* Card Header */
 .card-header {
-  background-color: #6A8FFF;
+  background-color: rgb(71, 71, 173);
   padding: 20px;
   display: flex;
   align-items: center;
   gap: 16px;
   border-bottom: 2px solid var(--border-gray);
+}
+
+.delete-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+
+.icon {
+  width: 20px;
+  height: 20px;
+  color: #fd1414;
+  transition: all 0.2s ease;
+}
+
+.delete-btn:hover .icon {
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
 }
 
 .student-avatar {

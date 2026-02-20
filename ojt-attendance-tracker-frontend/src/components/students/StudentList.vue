@@ -10,17 +10,25 @@
         <div class="header-stats">
           <div class="stat-card">
             <span class="stat-label">Total Students</span>
-            <span class="stat-value">{{ students.length }}</span>
+            <span class="stat-value">{{ searchQuery ? `${filteredStudents.length}/${students.length}` : students.length }}</span>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="button-container">
-        <button class="btn-add-student" @click="openAddStudentModal">
-            + Add Student
-        </button>
+    <div class="actions">
+      <button class="btn-add-student" @click="openAddStudentModal">
+          + Add Student
+      </button>
+
+      <input
+          type="text"
+          class="search-input"
+          placeholder="Search students..."
+          v-model="searchQuery"
+      />
     </div>
+    
 
     <!-- Student Form Modal -->
     <StudentForm
@@ -52,13 +60,22 @@
       <p>Create your first student to get started</p>
     </div>
 
+    <!-- No Search Results State -->
+    <div v-else-if="filteredStudents.length === 0" class="empty-state">
+      <div class="empty-icon">🔍</div>
+      <h3>No Results Found</h3>
+      <p>No students match "{{ searchQuery }}"</p>
+      <button class="btn-clear-search" @click="searchQuery = ''">Clear Search</button>
+    </div>
+
     <!-- Students Grid -->
     <div v-else class="students-grid">
       <StudentCard
-        v-for="student in students"
+        v-for="student in filteredStudents"
         :key="student.id"
         :student="student"
         @card-clicked="onStudentCardClicked"
+        @delete-clicked="onStudentDeleteClicked"
       />
     </div>
 
@@ -66,6 +83,11 @@
     <StudentDetails
       ref="studentDetailsModal"
       :apiBaseUrl="apiBaseUrl"
+    />
+
+    <!-- Confirm Delete Modal -->
+    <ConfirmDeleteModal
+      ref="confirmDeleteModal"
     />
   </div>
 </template>
@@ -75,13 +97,15 @@ import axios from 'axios';
 import StudentCard from './StudentCard.vue';
 import StudentForm from './StudentForm.vue';
 import StudentDetails from './StudentDetails.vue';
+import ConfirmDeleteModal from './ConfirmDeleteModal.vue';
 
 export default {
   name: 'StudentList',
   components: {
     StudentCard,
     StudentForm,
-    StudentDetails
+    StudentDetails,
+    ConfirmDeleteModal
   },
   props: {
     apiBaseUrl: {
@@ -97,8 +121,24 @@ export default {
     return {
       students: [],
       isLoading: false,
-      error: null
+      error: null,
+      searchQuery: ''
     };
+  },
+  computed: {
+    filteredStudents() {
+      if (!this.searchQuery.trim()) {
+        return this.students;
+      }
+
+      const query = this.searchQuery.toLowerCase().trim();
+
+      return this.students.filter(student => {
+        const nameMatch = student.name && student.name.toLowerCase().includes(query);
+        const idMatch = student.id && String(student.id).includes(query);
+        return nameMatch || idMatch;
+      });
+    }
   },
   mounted() {
     if (this.autoLoad) {
@@ -133,6 +173,26 @@ export default {
     },
     onStudentCardClicked(student) {
       this.$refs.studentDetailsModal.openModal(student);
+    },
+    async onStudentDeleteClicked(student) {
+      const isConfirmed = await this.$refs.confirmDeleteModal.confirm(student.name);
+      if (isConfirmed) {
+        this.deleteStudent(student);
+      }
+    },
+
+    deleteStudent(student) {
+      axios.delete(`${this.apiBaseUrl}/students/${student.id}`)
+        .then(() => {
+          this.fetchStudents();
+        })
+        .catch((err) => {
+          alert(
+            err.response?.data?.message ||
+              'Failed to delete student. Please try again.'
+          );
+          console.error('Error deleting student:', err);
+        });
     }
   }
 };
@@ -188,11 +248,20 @@ export default {
   gap: 16px;
 }
 
-/* Add Student Button */
+/* Actions Container */
+.actions {
+  max-width: 1400px;
+  margin: 0 auto 40px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+}
 
+/* Add Student Button */
 .button-container {
   max-width: 1400px;
-  margin: 0 auto 25px;
+  margin: 0 auto 40px;
   display: flex;
   justify-content: flex-start;
 }
@@ -211,6 +280,7 @@ export default {
   align-items: center;
   gap: 6px;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .btn-add-student:hover {
@@ -344,6 +414,57 @@ export default {
   transform: translateY(-2px);
 }
 
+/* Search Input */
+.search-container {
+  max-width: 1400px;
+  margin: 0 auto 40px;
+  width: 100%;
+}
+
+.search-input {
+  flex: 1;
+  min-width: 200px;
+  max-width: 400px;
+  padding: 12px 16px;
+  font-size: 14px;
+  border: 2px solid var(--border-gray);
+  border-radius: 8px;
+  background-color: var(--white);
+  color: var(--text-dark);
+  transition: all 0.3s ease;
+  font-family: inherit;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--royal-blue);
+  box-shadow: 0 0 0 3px rgba(65, 105, 225, 0.1);
+}
+
+.search-input::placeholder {
+  color: var(--text-light);
+}
+
+/* Clear Search Button */
+.btn-clear-search {
+  padding: 10px 20px;
+  background-color: var(--royal-blue);
+  color: var(--white);
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 20px;
+}
+
+.btn-clear-search:hover {
+  background-color: var(--royal-blue-dark);
+  box-shadow: 0 4px 12px rgba(65, 105, 225, 0.3);
+  transform: translateY(-2px);
+}
+
 /* Empty State */
 .empty-state {
   max-width: 600px;
@@ -425,6 +546,21 @@ export default {
     font-size: 28px;
   }
 
+  .actions {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+
+  .btn-add-student {
+    width: 100%;
+  }
+
+  .search-input {
+    width: 100%;
+    max-width: 100%;
+  }
+
   .students-grid {
     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
     gap: 20px;
@@ -438,6 +574,20 @@ export default {
 
   .list-title {
     font-size: 24px;
+  }
+
+  .actions {
+    gap: 10px;
+  }
+
+  .btn-add-student {
+    padding: 10px 12px;
+    font-size: 0.9rem;
+  }
+
+  .search-input {
+    padding: 8px 10px;
+    font-size: 0.9rem;
   }
 
   .students-grid {

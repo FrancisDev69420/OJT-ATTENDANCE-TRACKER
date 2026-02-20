@@ -105,8 +105,8 @@ class AttendanceController extends Controller
          $validated = $request->validate([
             'student_id' => 'sometimes|exists:students,id', // validate UUID
             'date' => 'sometimes|date',
-            'time_in' => 'sometimes|time',
-            'time_out' => 'sometimes|time|after:time_in',
+            'time_in' => 'sometimes|date_format:H:i',
+            'time_out' => 'sometimes|date_format:H:i|after:time_in',
             'status' => 'sometimes|string|in:present,absent,late,half_day,holiday',
         ]);
 

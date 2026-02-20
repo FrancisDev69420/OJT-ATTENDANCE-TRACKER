@@ -112,10 +112,21 @@
 
           <!-- Attendance Records -->
           <div class="info-section">
+
             <div class="attendance-header">
               <h4 class="section-title">Attendance Records</h4>
             </div>
-            <div v-if="attendanceRecords && attendanceRecords.length > 0" class="attendance-table-wrapper">
+
+            <div class="search-container">
+              <input
+                type="text"
+                v-model="searchQuery"
+                class="search-input"
+                placeholder="Search by date, status..."
+              />
+            </div>
+
+            <div v-if="filteredAttendanceRecords && filteredAttendanceRecords.length > 0" class="attendance-table-wrapper">
               <div class="attendance-table-header">
                 <div class="header-cell date">Date</div>
                 <div class="header-cell time">Time</div>
@@ -123,7 +134,7 @@
                 <div class="header-cell hours">Hours</div>
               </div>
               <div class="attendance-list">
-                <div v-for="record in attendanceRecords" :key="record.id" class="attendance-item">
+                <div v-for="record in filteredAttendanceRecords" :key="record.id" class="attendance-item" @click="openEditAttendance(record)" title="Edit attendance record">
                   <div class="attendance-date">
                     {{ formatDate(record.date) }}
                   </div>
@@ -138,6 +149,9 @@
                   </div>
                 </div>
               </div>
+            </div>
+            <div v-else-if="searchQuery && attendanceRecords.length > 0" class="empty-attendance">
+              <p>No records match "{{ searchQuery }}"</p>
             </div>
             <div v-else class="empty-attendance">
               <p>No attendance records found</p>
@@ -199,13 +213,40 @@ export default {
       error: null,
       studentData: null,
       attendanceSummary: null,
-      attendanceRecords: []
+      attendanceRecords: [],
+      searchQuery: ''
     };
   },
   computed: {
+
+    // Extracted student ID for easier access
     studentId() {
       return this.studentData?.id;
+    },
+
+    // Filtered attendance records based on search query
+    filteredAttendanceRecords() {
+      if (!this.searchQuery.trim()) {
+        return this.attendanceRecords;
+      }
+
+      const query = this.searchQuery.toLowerCase().trim();
+
+      return this.attendanceRecords.filter(record => {
+        // Format the date for comparison (e.g., "Feb 21, 2026")
+        const formattedDate = this.formatDate(record.date).toLowerCase();
+        const dateMatch = formattedDate.includes(query);
+        
+        // Search by status
+        const statusMatch = record.status && record.status.toLowerCase().includes(query);
+        
+        // Search by hours rendered
+        const hoursMatch = String(record.hours_rendered).includes(query);
+        
+        return dateMatch || statusMatch || hoursMatch;
+      });
     }
+
   },
   methods: {
     openModal(student) {
@@ -215,11 +256,7 @@ export default {
       this.attendanceSummary = null;
       this.attendanceRecords = [];
       this.isLoading = true;
-      
-      // Debug: log the full student object received
-      console.log('Student object received:', student);
-      console.log('Student ID:', student.id, 'ID type:', typeof student.id, 'ID length:', student.id ? student.id.length : 0);
-      
+          
       // Fetch attendance summary and records
       this.fetchStudentData(student.id);
     },
@@ -234,6 +271,10 @@ export default {
 
     openAttendanceForm() {
       this.$refs.attendanceForm.openModal(this.studentId);
+    },
+
+    openEditAttendance(attendanceRecord) {
+      this.$refs.attendanceForm.openModal(this.studentId, attendanceRecord);
     },
 
     openEditStudentModal() {
@@ -604,6 +645,42 @@ export default {
   color: #28a745;
 }
 
+/* Search Container */
+.search-container {
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+}
+
+.search-input {
+  width: 100%;
+  max-width: 400px;
+  padding: 12px 16px;
+  font-size: 13px;
+  border: 2px solid var(--border-gray);
+  border-radius: 8px;
+  background-color: var(--white);
+  color: var(--text-dark);
+  font-family: inherit;
+  transition: all 0.3s ease;
+  outline: none;
+}
+
+.search-input::placeholder {
+  color: var(--text-light);
+}
+
+.search-input:focus {
+  border-color: var(--royal-blue);
+  box-shadow: 0 0 0 3px rgba(65, 105, 225, 0.1);
+  background-color: var(--white);
+}
+
+.search-input:hover:not(:focus) {
+  border-color: var(--royal-blue);
+  box-shadow: 0 2px 8px rgba(65, 105, 225, 0.15);
+}
+
 /* Attendance Header with Button */
 .attendance-header {
   display: flex;
@@ -688,6 +765,7 @@ export default {
   align-items: center;
   font-size: 12px;
   transition: background-color 0.2s ease;
+  cursor: pointer;
 }
 
 .attendance-item:last-child {
