@@ -235,8 +235,16 @@ export default {
         console.error('Error submitting attendance:', error);
 
         if (error.response && error.response.status === 422) {
-          // Validation errors
-          this.validationErrors = error.response.data.errors;
+
+          // Handle validation errors
+          if (error.response.data.errors) {
+            this.validationErrors = error.response.data.errors;
+          } else if (error.response.data.message) {
+            this.error = error.response.data.message;  
+          } else {
+            this.error = 'Validation failed. Please check your input.';
+          }
+
         } else if (error.response && error.response.data && error.response.data.message) {
           this.error = error.response.data.message;
         } else {

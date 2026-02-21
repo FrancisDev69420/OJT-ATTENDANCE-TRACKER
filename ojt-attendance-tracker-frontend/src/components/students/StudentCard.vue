@@ -174,12 +174,12 @@ export default {
 .icon {
   width: 20px;
   height: 20px;
-  color: #fd1414;
+  color: var(--orange);
   transition: all 0.2s ease;
 }
 
 .delete-btn:hover .icon {
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+  filter: drop-shadow(0 2px 4px rgb(255, 0, 0));
 }
 
 .student-avatar {

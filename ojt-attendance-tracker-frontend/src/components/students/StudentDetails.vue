@@ -76,6 +76,24 @@
                 </div>
               </div>
               <div class="info-item">
+                <label class="info-label">Shift</label>
+                <div class="info-value">
+                  {{ studentData?.shift_name }}
+                </div>
+              </div>
+              <div class="info-item">
+                <label class="info-label">Shift Start Time</label>
+                <div class="info-value">
+                  {{ formatTime(studentData?.shift_start) }}
+                </div>
+              </div>
+              <div class="info-item">
+                <label class="info-label">Shift End Time</label>
+                <div class="info-value">
+                  {{ formatTime(studentData?.shift_end) }}
+                </div>
+              </div>
+              <div class="info-item">
                 <label class="info-label">Created</label>
                 <div class="info-value">
                   {{ formatDateTime(studentData?.created_at) }}
@@ -132,6 +150,7 @@
                 <div class="header-cell time">Time</div>
                 <div class="header-cell status">Status</div>
                 <div class="header-cell hours">Hours</div>
+                <div class="header-cell actions">Actions</div>
               </div>
               <div class="attendance-list">
                 <div v-for="record in filteredAttendanceRecords" :key="record.id" class="attendance-item" @click="openEditAttendance(record)" title="Edit attendance record">
@@ -146,6 +165,22 @@
                   </div>
                   <div class="attendance-hours">
                     {{ record.hours_rendered }} hrs
+                  </div>
+                  <div class="attendance-actions">
+                    <button 
+                      class="btn-edit-attendance"
+                      @click.stop="openEditAttendance(record)"
+                      title="Edit attendance record"
+                    >
+                      <PencilIcon class="icon" />
+                    </button>
+                    <button 
+                      class="btn-delete-attendance"
+                      @click.stop="openDeleteModal(record)"
+                      title="Delete attendance record"
+                    >
+                      <TrashIcon class="icon" />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -181,6 +216,12 @@
     :apiBaseUrl="apiBaseUrl"
     @student-saved="onStudentFormSaved"
   />
+
+  <!-- Delete Confirmation Modal -->
+  <DeleteConfirmationModal
+    ref="deleteConfirmationModal"
+    @delete-confirmed="deleteAttendanceRecord"
+  />
 </template>
 
 <script>
@@ -188,6 +229,8 @@ import axios from 'axios';
 import AttendanceForm from '../attendance/AttendanceForm.vue';
 import PatternAnalysis from '../attendance/PatternAnalysis.vue';
 import StudentForm from './StudentForm.vue';
+import DeleteConfirmationModal from '../attendance/DeleteConfirmationModal.vue';
+import { TrashIcon, PencilIcon } from '@heroicons/vue/24/solid';
 
 export default {
   name: 'StudentDetails',
@@ -195,6 +238,9 @@ export default {
     AttendanceForm,
     PatternAnalysis,
     StudentForm,
+    DeleteConfirmationModal,
+    TrashIcon,
+    PencilIcon,
   },
   props: {
     apiBaseUrl: {
@@ -214,7 +260,8 @@ export default {
       studentData: null,
       attendanceSummary: null,
       attendanceRecords: [],
-      searchQuery: ''
+      searchQuery: '',
+      isDeleting: false
     };
   },
   computed: {
@@ -284,6 +331,7 @@ export default {
     async onAttendanceSaved(attendanceRecord) {
       // Refresh the attendance records when a new one is added
       console.log('Attendance saved:', attendanceRecord);
+      console.log('Shift Name:', this.studentData?.shift_name);
       this.fetchStudentData(this.studentId);
     },
 
@@ -374,9 +422,17 @@ export default {
 
     formatTime(timeString) {
       if (!timeString) return 'N/A';
+
       try {
-        // Time is already in H:i format from the API
-        return timeString;
+        // Create a dummy date with the time
+        const date = new Date(`1970-01-01T${timeString}`);
+
+        return date.toLocaleTimeString([], {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
+        });
+
       } catch (e) {
         console.error('Error formatting time:', e);
         return 'N/A';
@@ -389,6 +445,28 @@ export default {
         .split('_')
         .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
         .join(' ');
+    },
+
+    openDeleteModal(record) {
+      this.$refs.deleteConfirmationModal.openModal(record);
+    },
+
+    async deleteAttendanceRecord(record) {
+      try {
+        this.isDeleting = true;
+        await axios.delete(`${this.apiBaseUrl}/attendances/${record.id}`);
+        
+        // Remove the deleted record from the list
+        this.attendanceRecords = this.attendanceRecords.filter(r => r.id !== record.id); 
+        
+        // Refresh the attendance data
+        this.fetchStudentData(this.studentId);
+      } catch (err) {
+        this.error = err.response?.data?.message || 'Failed to delete attendance record. Please try again.';
+        console.error('Error deleting attendance record:', err);
+      } finally {
+        this.isDeleting = false;
+      }
     }
   }
 };
@@ -726,7 +804,7 @@ export default {
 
 .attendance-table-header {
   display: grid;
-  grid-template-columns: 120px 140px 100px 80px;
+  grid-template-columns: 120px 140px 100px 80px 60px;
   gap: 12px;
   padding: 12px;
   padding-left: 12px;
@@ -745,7 +823,11 @@ export default {
 }
 
 .hours{
-    margin-left: 30px ;
+    margin-left: 30px;
+}
+
+.actions{
+    justify-content: flex-end;
 }
 
 /* Attendance List */
@@ -757,7 +839,7 @@ export default {
 
 .attendance-item {
   display: grid;
-  grid-template-columns: 120px 140px 100px 80px;
+  grid-template-columns: 120px 140px 100px 80px 60px;
   gap: 12px;
   padding: 12px;
   background-color: var(--white);
@@ -765,7 +847,6 @@ export default {
   align-items: center;
   font-size: 12px;
   transition: background-color 0.2s ease;
-  cursor: pointer;
 }
 
 .attendance-item:last-child {
@@ -774,6 +855,99 @@ export default {
 
 .attendance-item:hover {
   background-color: #fafbff;
+}
+
+/* Attendance Actions Column */
+.attendance-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-left: 10px;
+}
+
+.btn-edit-attendance {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 8px;
+  background-color: #eff;
+  color: var(--royal-blue);
+  border: 1px solid #cef;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-edit-attendance:hover {
+  background-color: #dff;
+  border-color: var(--royal-blue);
+  box-shadow: 0 2px 6px rgba(65, 105, 225, 0.2);
+}
+
+.btn-edit-attendance:active {
+  transform: translateY(1px);
+}
+
+.btn-edit-attendance .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.btn-delete-attendance {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 8px;
+  background-color: #fee;
+  color: var(--error-red);
+  border: 1px solid #fcc;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-delete-attendance:hover {
+  background-color: #fdd;
+  border-color: var(--error-red);
+  box-shadow: 0 2px 6px rgba(220, 53, 69, 0.2);
+}
+
+.btn-delete-attendance:active {
+  transform: translateY(1px);
+}
+
+.btn-delete-attendance .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.btn-cancel-delete {
+  padding: 4px 8px;
+  background-color: #eee;
+  color: var(--text-dark);
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-cancel-delete:hover {
+  background-color: #ddd;
+  color: var(--text-dark);
+  border-color: var(--text-dark);
+}
+
+.btn-cancel-delete:active {
+  transform: translateY(1px);
 }
 
 .attendance-date {
@@ -975,6 +1149,12 @@ export default {
 
   .attendance-hours {
     text-align: left;
+  }
+
+  .attendance-actions {
+    justify-content: flex-start;
+    padding-top: 8px;
+    border-top: 1px solid var(--light-gray);
   }
 
   .header-title h2 {

@@ -15,6 +15,25 @@
       <!-- Modal Body -->
       <div class="modal-body">
         <form @submit.prevent="handleSubmit" class="form-content">
+          <!-- Take Profile Picture -->
+          <div class="form-group">
+
+            <label for="profile_picture" class="form-label">
+              <span class="label-text">Profile Picture</span>
+              <span class="required-asterisk">*</span>
+            </label>
+
+            <div class="profile-picture-row">
+              <button type="button" @click="openTakePictureModal" class="btn btn-secondary photo-btn">
+                Take Photo
+              </button>
+              <span v-if="formData.profile_picture" class="profile-url">
+                File: {{ truncatedProfilePicture }}
+              </span>
+            </div>
+            <span v-if="errors.profile_picture" class="error-message">{{ errors.profile_picture }}</span>
+          </div>
+
           <!-- Name Input -->
           <div class="form-group">
             <label for="name" class="form-label">
@@ -86,6 +105,59 @@
             <span v-if="errors.end_date" class="error-message">{{ errors.end_date }}</span>
           </div>
 
+          <!-- Shift Name -->
+           <div class="form-group">
+            <label for="shift_name" class="form-label">
+              <span class="label-text">Shift Name</span>
+              <span class="required-asterisk">*</span>
+            </label>
+            <select
+              id="shift_name"
+              v-model="formData.shift_name"
+              class="form-input"
+              :class="{ 'input-error': errors.shift_name }"
+              required
+            >
+              <option disabled="" value="">Select Shift</option>
+              <option value="Morning">Morning</option>
+              <option value="Afternoon">Afternoon</option>
+              <option value="Evening">Evening</option>
+            </select>
+            <span v-if="errors.shift_name" class="error-message">{{ errors.shift_name }}</span>
+          </div>
+
+          <div class="form-group">
+            <label for="shift_start" class="form-label">
+              <span class="label-text">Shift Start Time</span>
+              <span class="required-asterisk">*</span>
+            </label>
+            <input
+              id="shift_start"
+              v-model="formData.shift_start"
+              type="time"
+              class="form-input"
+              :class="{ 'input-error': errors.shift_start }"
+              required
+            />
+            <span v-if="errors.shift_start" class="error-message">{{ errors.shift_start }}</span>
+          </div>
+
+          <div class="form-group">
+            <label for="shift_end" class="form-label">
+              <span class="label-text">Shift End Time</span>
+              <span class="required-asterisk">*</span>
+            </label>
+            <input
+              id="shift_end"
+              v-model="formData.shift_end"
+              type="time"
+              class="form-input"
+              :class="{ 'input-error': errors.shift_end }"
+              required
+            />
+            <span v-if="errors.shift_end" class="error-message">{{ errors.shift_end }}</span>
+          </div>
+
           <!-- Success Message -->
           <div v-if="successMessage" class="success-message">
             <span class="success-icon">✓</span>
@@ -125,13 +197,20 @@
       </div>
     </div>
   </div>
+
+  <!-- Take Profile Picture Modal -->
+  <take-profile-picture-modal ref="takePictureModal" @photo-captured="handlePhotoCaptured"/>
 </template>
 
 <script>
 import axios from 'axios';
+import TakeProfilePictureModal from '../students/TakeProfilePictureModal.vue';
 
 export default {
   name: 'StudentForm',
+  components: {
+    TakeProfilePictureModal
+  },
   props: {
     studentId: {
       type: String,
@@ -142,6 +221,7 @@ export default {
       default: 'http://localhost:8000/api'
     }
   },
+  emits: ['student-saved'],
   data() {
     return {
       isOpen: false,
@@ -149,7 +229,11 @@ export default {
         name: '',
         required_hours: '',
         start_date: '',
-        end_date: ''
+        end_date: '',
+        shift_start: '',
+        shift_end: '',
+        shift_name: 'Morning',
+        profile_picture: ''
       },
       originalFormData: {},
       errors: {},
@@ -164,7 +248,15 @@ export default {
       return this.formData.name &&
              this.formData.required_hours &&
              this.formData.start_date &&
-             this.formData.end_date;
+             this.formData.end_date &&
+             this.formData.shift_name &&
+             this.formData.shift_start &&
+             this.formData.shift_end &&
+             this.formData.profile_picture;
+    },
+    truncatedProfilePicture(){
+      if (!this.formData.profile_picture) return '';
+      return this.formData.profile_picture.substring(0, 30) + '...'; // Truncate long URLs for display
     }
   },
   watch: {
@@ -179,6 +271,18 @@ export default {
     },
     'formData.required_hours'() {
       this.clearErrorForField('required_hours');
+    },
+    'formData.shift_name'() {
+      this.clearErrorForField('shift_name');
+    },
+    'formData.shift_start'() {
+      this.clearErrorForField('shift_start');
+    },
+    'formData.shift_end'() {
+      this.clearErrorForField('shift_end');
+    },
+    'formData.profile_picture'() {
+      this.clearErrorForField('profile_picture');
     }
   },
   methods: {
@@ -198,7 +302,12 @@ export default {
       this.resetForm();
       this.errors = {};
     },
-
+    openTakePictureModal() {
+      this.$refs.takePictureModal.openModal(this.studentId);
+    },
+    handlePhotoCaptured(photoUrl){
+      this.formData.profile_picture = photoUrl;
+    },
     async loadStudentData(studentId) {
       this.isLoading = true;
       this.generalError = '';
@@ -220,11 +329,15 @@ export default {
           }
         };
 
+        // Pre-fill form data with existing student information
         this.formData = {
           name: student.name,
           required_hours: student.required_hours,
           start_date: parseDate(student.start_date),
-          end_date: parseDate(student.end_date)
+          end_date: parseDate(student.end_date),
+          shift_start: student.shift_start || '',
+          shift_end: student.shift_end || '',
+          shift_name: student.shift_name || 'Morning'
         };
 
         this.originalFormData = { ...this.formData };
@@ -311,6 +424,14 @@ export default {
         }
       }
 
+      if (!this.formData.shift_name) {
+        newErrors.shift_name = 'Shift name is required';
+      }
+
+      if (!this.formData.profile_picture) {
+        newErrors.profile_picture = 'Profile picture is required';
+      }
+
       this.errors = newErrors;
       return Object.keys(newErrors).length === 0;
     },
@@ -328,7 +449,10 @@ export default {
         name: '',
         required_hours: '',
         start_date: '',
-        end_date: ''
+        end_date: '',
+        shift_start: '',
+        shift_end: '',
+        shift_name: 'Morning' 
       };
       this.errors = {};
       this.successMessage = '';
@@ -417,6 +541,20 @@ export default {
   }
 }
 
+.profile-picture-row {
+  display: flex;
+  flex-direction: column;  
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.profile-url{
+  font-size: 15px;
+  color: var(--text-light);
+  color: var(--royal-blue);
+}
+
 /* Modal Header */
 .modal-header {
   background: linear-gradient(135deg, #6A8FFF 0%, #5A7FEE 100%);
@@ -439,6 +577,10 @@ export default {
   color: rgba(255, 255, 255, 0.9);
   margin: 0;
   line-height: 1.4;
+}
+
+.photo-btn {
+  width: 100%;
 }
 
 .btn-close {

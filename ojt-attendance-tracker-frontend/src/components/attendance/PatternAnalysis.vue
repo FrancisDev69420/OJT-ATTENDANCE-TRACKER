@@ -868,13 +868,13 @@ export default {
 }
 
 .error-title {
-  font-size: 13px;
+  font-size: 20px;
   font-weight: 700;
   margin: 0 0 2px 0;
 }
 
 .error-message {
-  font-size: 12px;
+  font-size: 16px;
   margin: 0;
 }
 
